@@ -1,0 +1,17 @@
+{
+  "short_name": "AudioPT",
+  "name": "Audio Phase Transition",
+  "icons": [
+    {
+      "src": "gasoline-pump.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/index.html",
+  "background_color": "#3367D6",
+  "orientation": "landscape",
+  "display": "standalone",
+  "scope": "/",
+  "theme_color": "#3367D6"
+}
