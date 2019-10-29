@@ -7,14 +7,29 @@
     <link rel="manifest" href="manifest.json">
 </head>
 <body>
-<h1>Audio Phase Transitions</h1>
-<div class="slidecontainer">
-    <input type="range" min="0" max="100" value="20"  class="slider" id="volumeRange">
-</div>
-<button type="button" onclick="play()">Click Me!</button>
 <script>
+    const audioCtx = new window.AudioContext();
+    const gainNode = audioCtx.createGain();
+
+</script>
+
+
+<h1>Audio Phase Transitions</h1>
+<div id="info"></div>
+<div class="slidecontainer">
+    Volume: <input type="range" min="0" max="100" value="20"  class="slider" id="volumeRange">
+</div>
+<button type="button" onclick="activateAudio()" id="activate">Activate Audio</button>
+<button type="button" onclick="play()">Play</button>
+<script>
+    const info  = document.getElementById("info");
+    info.innerHTML=`Sample Rate: ${audioCtx.sampleRate}`
+    function activateAudio() {
+        audioCtx.resume();
+        document.getElementById("activate").disabled = true
+    }
+
     function play() {
-        let audioCtx = new window.AudioContext();
 
         // Create an empty three-second stereo buffer at the sample rate of the AudioContext
         let myArrayBuffer = audioCtx.createBuffer(2, audioCtx.sampleRate * 3, audioCtx.sampleRate);
@@ -38,7 +53,6 @@
         // set the buffer in the AudioBufferSourceNode
         source.buffer = myArrayBuffer;
 
-        let gainNode = audioCtx.createGain();
         gainNode.connect(audioCtx.destination)
         // connect the AudioBufferSourceNode to the
         // destination so we can hear the sound
