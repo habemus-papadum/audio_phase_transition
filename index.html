@@ -10,28 +10,104 @@
 
 
 <h1>Audio Phase Transitions</h1>
-<div id="info"></div>
-<h3>Volume</h3> <input type="range" min="0" max="100" value="10"  class="slider" id="volumeRange" onchange="setVolume()">
-<h3>Timbre</h3> <input type="range" min="0" max="10" value="1" step="1"  class="slider" id="timbreRange" onchange="setTimbre()">
-<button type="button" onclick="togglePlay()" id="playButton">Play</button>
-<script>
+<h3 id="info"></h3>
+<h3>Volume</h3> <input type="range" min="0" max="100" value="10"  class="slider" id="volumeRange" >
+<h3>Timbre</h3> <input type="range" min="0" max="10" value="1" step="1"  class="slider" id="timbreRange" >
+<h3>Frequency</h3> <input type="range" min="0" max="100" value="0" step="1"  class="slider" id="frequencyRange">
+<h3 id="frequencyInfo"></h3>
+
+<h3>Controls</h3>
+<button type="button"  id="clickButton">Click</button>
+<button type="button"  id="playButton">Play</button>
+
+<script type="module">
     const audioCtx = new window.AudioContext();
     const gainNode = audioCtx.createGain();
     gainNode.connect(audioCtx.destination);
+    document.getElementById("volumeRange").oninput = setVolume
+    document.getElementById("volumeRange").onchange = () => {
+        if (!isPlaying) {
+            click()
+        }
+    }
+    document.getElementById("timbreRange").onchange = setTimbre
 
+    const frequencyInfo  = document.getElementById("frequencyInfo");
     const info  = document.getElementById("info");
+    const frequencyRange  = document.getElementById("frequencyRange");
+
+    frequencyRange.onchange = setFrequency
+
     const samples = 120;
-    const period = samples/audioCtx.sampleRate;
-    const harmonics = [1,2,3,4,5,6,8,10,12,15,20,24];
-    const audioBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate, audioCtx.sampleRate);
+    const quantum = samples/audioCtx.sampleRate;
 
-    let weights = harmonics.map(()=>1);
-
-    info.innerHTML=`Sample Rate: ${audioCtx.sampleRate} Period:${(period*1000).toPrecision(2)}ms  Max Freq ${(1/period).toPrecision(4)}`
-
+    function roundUp(x) {
+        return Math.ceil(x/quantum)*quantum
+    }
+    function adjustFrequency(f) {
+        //return 1/roundUp(1/f)
+        return f
+    }
     function toSeconds(samples) {
         return samples/audioCtx.sampleRate
     }
+
+    const maxFrequency = 1 / quantum;
+    const minFrequency = adjustFrequency(1);
+    const mn = frequencyRange.min
+    const mx = frequencyRange.max
+    const factor = Math.exp(Math.log(maxFrequency)/(mx-mn))
+    const bufferSize = audioCtx.sampleRate/minFrequency
+
+    document.getElementById("playButton").onclick = togglePlay
+    document.getElementById("clickButton").onclick = click
+
+    let frequency
+    let period
+    let bpm
+
+    /**
+     * @type {AudioBufferSourceNode}
+     */
+    let audioNode = null
+
+
+    const harmonics = [1,2,3,4,5,6,8,10,12,15,20,24];
+    const audioBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate, bufferSize);
+
+
+    let weights = harmonics.map(()=>0);
+    let isPlaying = false;
+    let lastPaintRequest = null
+
+
+    fillAudioBuffer()
+    setVolume()
+    setFrequency()
+    updateUI()
+
+    info.innerHTML=`Sample Rate: ${audioCtx.sampleRate} Max Freq ${maxFrequency.toPrecision(4)}`
+
+
+    function updateUI() {
+        if (lastPaintRequest !== null) {
+            window.cancelAnimationFrame(lastPaintRequest)
+            lastPaintRequest = null
+        }
+        const currentRequest = lastPaintRequest
+        lastPaintRequest = window.requestAnimationFrame(()=>{
+            //frequency
+            frequencyInfo.innerHTML=`${frequency.toFixed(1)}Hz   ${bpm.toFixed(0)}BPM ${(period*1000).toFixed(1)}ms`
+            //webgl
+
+            if (lastPaintRequest === currentRequest) {
+                lastPaintRequest = null
+            }
+        })
+    }
+
+
+
     function fillAudioBuffer() {
         const timbreExponent = document.getElementById("timbreRange").valueAsNumber;
         for (let i = 0; i < weights.length; i++) {
@@ -56,11 +132,10 @@
     function setVolume() {
         const volRange = document.getElementById("volumeRange");
         gainNode.gain.setValueAtTime(volRange.valueAsNumber/100, audioCtx.currentTime)
-        demo()
     }
 
 
-    function demo() {
+    function click() {
         const source = audioCtx.createBufferSource();
         source.connect(gainNode);
         source.buffer = audioBuffer;
@@ -71,19 +146,60 @@
     }
     function setTimbre() {
         fillAudioBuffer()
-        const source = audioCtx.createBufferSource();
-        source.connect(gainNode);
-        source.buffer = audioBuffer;
-        source.loopEnd=toSeconds(samples)
-        source.loop=true
-        source.start(audioCtx.currentTime, 0, toSeconds(samples*200));
+        if (!isPlaying) {
+            const source = audioCtx.createBufferSource();
+            source.connect(gainNode);
+            source.buffer = audioBuffer;
+            source.loopEnd = toSeconds(samples)
+            source.loop = true
+            source.start(audioCtx.currentTime, 0, toSeconds(samples * 200));
+        }
+    }
+
+    function setFrequency() {
+        computeFrequency()
+        updateUI()
+        if (isPlaying) {
+            playAt(roundUp(audioCtx.currentTime))
+        }
+    }
+
+    function computeFrequency() {
+        const v = frequencyRange.valueAsNumber
+        frequency = adjustFrequency(Math.pow(factor, (v-mn)))
+        period = 1/frequency
+        bpm = frequency*60
     }
 
     function togglePlay() {
-        
+        const button = document.getElementById("playButton")
+        if (isPlaying) {
+            button.innerText = "Play"
+            if (audioNode !== null) {
+                audioNode.stop(roundUp(audioCtx.currentTime))
+            }
+            audioNode = null
+            isPlaying = false
+        }
+        else {
+            button.innerText = "Stop"
+            isPlaying = true
+            playAt(roundUp(audioCtx.currentTime))
+        }
     }
-    fillAudioBuffer()
-    setVolume()
+
+    function playAt(t) {
+        //pending restart
+        if (audioNode !== null) {
+            audioNode.stop(t)
+        }
+        audioNode = audioCtx.createBufferSource()
+        audioNode.buffer = audioBuffer
+        audioNode.loop = true
+        audioNode.loopEnd = period
+        audioNode.connect(gainNode)
+        audioNode.start(t)
+    }
 
 </script>
 </body>
