@@ -7,18 +7,22 @@
     <link rel="manifest" href="manifest.json">
 </head>
 <body>
-
-
-<h1>Audio Phase Transitions</h1>
-<h3 id="info"></h3>
-<h3>Volume</h3> <input type="range" min="0" max="100" value="10"  class="slider" id="volumeRange" >
-<h3>Timbre</h3> <input type="range" min="0" max="10" value="1" step="1"  class="slider" id="timbreRange" >
+<div id="main">
+    <div id="col1">
+        <h1>Audio Phase Transitions</h1>
+        <h3 id="info"></h3>
+        <h3>Volume</h3> <input type="range" min="0" max="100" value="10"  class="slider" id="volumeRange" >
+        <h3>Timbre</h3> <input type="range" min="0" max="10" value="1" step="1"  class="slider" id="timbreRange" >
+    </div>
+    <div id="col2">
+        <canvas id="graph">
+        </canvas>
+    </div>
+</div>
 <h3>Frequency</h3> <input type="range" min="0" max="100" value="0" step="1"  class="slider" id="frequencyRange">
-<h3 id="frequencyInfo"></h3>
-
-<h3>Controls</h3>
-<button type="button"  id="clickButton">Click</button>
-<button type="button"  id="playButton">Play</button>
+<h1 id="frequencyInfo"></h1>
+<button type="button"  class="cb" id="clickButton" width="50%">Click</button>
+<button type="button"  class="cb" id="playButton" width="50%">Play</button>
 
 <script type="module">
     const audioCtx = new window.AudioContext();
@@ -40,6 +44,10 @@
 
     const samples = 120;
     const quantum = samples/audioCtx.sampleRate;
+
+    const cvs = document.getElementById("graph")
+    const  canvasCtx = cvs.getContext('2d');
+
 
     function roundUp(x) {
         return Math.ceil(x/quantum)*quantum
@@ -98,7 +106,18 @@
         lastPaintRequest = window.requestAnimationFrame(()=>{
             //frequency
             frequencyInfo.innerHTML=`${frequency.toFixed(1)}Hz   ${bpm.toFixed(0)}BPM ${(period*1000).toFixed(1)}ms`
-            //webgl
+            const w = cvs.width
+            const h = cvs.height
+            canvasCtx.strokeStyle='rgb(200,0,0)'
+            canvasCtx.clearRect(0,0, w, h)
+            canvasCtx.beginPath()
+            canvasCtx.moveTo(0,h/2)
+            for (let i = 0; i < 2*samples; i++) {
+                const channelData = audioBuffer.getChannelData(0);
+                canvasCtx.lineTo(i/(2*samples)*w, h/2 - channelData[i % samples]*h/2*0.9)
+            }
+            canvasCtx.stroke()
+
 
             if (lastPaintRequest === currentRequest) {
                 lastPaintRequest = null
@@ -154,6 +173,7 @@
             source.loop = true
             source.start(audioCtx.currentTime, 0, toSeconds(samples * 200));
         }
+        updateUI()
     }
 
     function setFrequency() {
@@ -162,6 +182,7 @@
         if (isPlaying) {
             playAt(roundUp(audioCtx.currentTime))
         }
+        updateUI()
     }
 
     function computeFrequency() {

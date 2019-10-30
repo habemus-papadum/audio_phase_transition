@@ -1,7 +1,31 @@
 h1 {
     color: blue;
 }
+#main:after {
+    content: "";
+    display: table;
+    clear: both;
+}
 
+#col1 {
+    width: 50%;
+    float: left;
+}
+#col2 {
+    width: 50%;
+    float: right;
+
+}
+
+#graph {
+    width: 90%;
+    height: 50%;
+    margin: 20px;
+}
+.cb {
+    font-size: 40pt;
+    width: 45%;
+}
 .slider {
     -webkit-appearance: none;
     width: 100%;
